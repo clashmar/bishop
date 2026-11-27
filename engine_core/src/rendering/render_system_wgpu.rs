@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bishop::prelude::*;
 use crate::omni_error;
 use crate::ecs::*;
+use crate::rendering::room_layer_draw::GlowSourceDiagnostic;
 use crate::rendering::room_layer_rendering::{
     ContributionLightingPlan, LayerLightingBuffer, LightingFailure, RoomLightingContribution,
     alternate_lighting_buffer, fallback_for_lighting_failure,
@@ -13,6 +14,8 @@ struct ContributionTargets {
     illumination_a: BishopRenderTarget,
     illumination_b: BishopRenderTarget,
     composite: BishopRenderTarget,
+    emission_mask: Option<BishopRenderTarget>,
+    emission_mask_attempted: bool,
 }
 
 /// Render system that owns the room contribution targets and final scene compositor.
@@ -29,6 +32,12 @@ pub struct RenderSystem {
     contribution_targets: HashMap<RoomLightingContribution, ContributionTargets>,
     /// Final output chosen for presentation.
     output_rt: Option<BishopRenderTarget>,
+    /// Source failures already logged, retained to avoid one warning per frame.
+    reported_glow_source_issues: HashSet<GlowSourceDiagnostic>,
+    /// Contributions whose optional emission mask allocation failure was logged.
+    reported_emission_mask_failures: HashSet<RoomLightingContribution>,
+    /// Glow entities whose emission pass failure was logged.
+    reported_emission_pass_failures: HashSet<Entity>,
 }
 
 impl RenderSystem {
@@ -40,6 +49,9 @@ impl RenderSystem {
             scene_rt: None,
             contribution_targets: HashMap::new(),
             output_rt: None,
+            reported_glow_source_issues: HashSet::new(),
+            reported_emission_mask_failures: HashSet::new(),
+            reported_emission_pass_failures: HashSet::new(),
         }
     }
 
@@ -93,6 +105,9 @@ impl RenderSystem {
                         || targets.illumination_b.height() != height
                         || targets.composite.width() != width
                         || targets.composite.height() != height
+                        || targets.emission_mask.as_ref().is_some_and(|target| {
+                            target.width() != width || target.height() != height
+                        })
                 },
             );
             if needs_create {
@@ -118,8 +133,36 @@ impl RenderSystem {
                 }
                 self.contribution_targets.insert(
                     entry.contribution,
-                    ContributionTargets { raw, illumination_a, illumination_b, composite },
+                    ContributionTargets {
+                        raw,
+                        illumination_a,
+                        illumination_b,
+                        composite,
+                        emission_mask: None,
+                        emission_mask_attempted: false,
+                    },
                 );
+            }
+
+            let emission_mask_error = {
+                let Some(targets) = self.contribution_targets.get_mut(&entry.contribution) else {
+                    continue;
+                };
+                if entry.glows.is_empty() || targets.emission_mask_attempted {
+                    None
+                } else {
+                    let emission_mask = ctx.create_drawable_render_target(width, height);
+                    targets.emission_mask_attempted = true;
+                    if let Some(error) = ctx.render_target_error(&emission_mask) {
+                        Some(error)
+                    } else {
+                        targets.emission_mask = Some(emission_mask);
+                        None
+                    }
+                }
+            };
+            if let Some(error) = emission_mask_error {
+                self.report_emission_mask_allocation_failure(entry.contribution, &error);
             }
         }
 
@@ -172,13 +215,74 @@ impl RenderSystem {
             ctx.apply_point_light_pass(source_target, destination_target, *light)?;
             source = destination;
         }
-        let illumination = match source {
+        Ok(source)
+    }
+
+    pub(crate) fn draw_emission_source_mask<C, F>(
+        &self,
+        ctx: &mut C,
+        contribution: RoomLightingContribution,
+        draw_source: F,
+    ) -> Option<bool>
+    where
+        C: BishopContext,
+        F: FnOnce(&mut C) -> bool,
+    {
+        let Some(mask) = self
+            .contribution_targets
+            .get(&contribution)
+            .and_then(|targets| targets.emission_mask.as_ref())
+        else {
+            return None;
+        };
+        ctx.begin_render_to_target(mask);
+        ctx.clear_background(Color::TRANSPARENT);
+        let drawn = draw_source(ctx);
+        ctx.end_render_to_target();
+        Some(drawn)
+    }
+
+    pub(crate) fn apply_emission_source<C: BishopContext>(
+        &self,
+        ctx: &mut C,
+        contribution: RoomLightingContribution,
+        source: LayerLightingBuffer,
+        params: EmissionPassParams,
+    ) -> Result<LayerLightingBuffer, String> {
+        let Some(targets) = self.contribution_targets.get(&contribution) else {
+            return Err(format!("missing lighting targets for {contribution:?}"));
+        };
+        let Some(mask) = targets.emission_mask.as_ref() else {
+            return Ok(source);
+        };
+        let destination = alternate_lighting_buffer(source);
+        let (illumination, destination_target) = match (source, destination) {
+            (LayerLightingBuffer::A, LayerLightingBuffer::B) => {
+                (&targets.illumination_a, &targets.illumination_b)
+            }
+            (LayerLightingBuffer::B, LayerLightingBuffer::A) => {
+                (&targets.illumination_b, &targets.illumination_a)
+            }
+            _ => unreachable!("lighting ping-pong buffers must differ"),
+        };
+        ctx.apply_emission_pass(mask, illumination, destination_target, params)?;
+        Ok(destination)
+    }
+
+    pub(crate) fn composite_contribution<C: BishopContext>(
+        &self,
+        ctx: &mut C,
+        contribution: RoomLightingContribution,
+        illumination_source: LayerLightingBuffer,
+    ) -> Result<(), String> {
+        let Some(targets) = self.contribution_targets.get(&contribution) else {
+            return Err(format!("missing lighting targets for {contribution:?}"));
+        };
+        let illumination = match illumination_source {
             LayerLightingBuffer::A => &targets.illumination_a,
             LayerLightingBuffer::B => &targets.illumination_b,
         };
-        ctx.composite_lighting_pass(&targets.raw, illumination, &targets.composite)?;
-
-        Ok(source)
+        ctx.composite_lighting_pass(&targets.raw, illumination, &targets.composite)
     }
 
     /// Composites completed contribution targets in the planned room order.
@@ -231,6 +335,52 @@ impl RenderSystem {
 
     pub(crate) fn report_pass_failure(detail: &str) {
         Self::report_fallback(LightingFailure::LightingPass, detail);
+    }
+
+    pub(crate) fn report_emission_source_unavailable(&mut self, entity: Entity) {
+        if self.reported_emission_pass_failures.insert(entity) {
+            crate::omni_warn!(
+                "glow_source_unavailable entity={entity:?}: source texture is unavailable; emission skipped",
+            );
+        }
+    }
+
+    pub(crate) fn report_emission_pass_failure(&mut self, entity: Entity, detail: &str) {
+        if self.reported_emission_pass_failures.insert(entity) {
+            crate::omni_warn!(
+                "sprite_emission_pass_failed entity={entity:?}: {detail}; emission skipped",
+            );
+        }
+    }
+
+    fn report_emission_mask_allocation_failure(
+        &mut self,
+        contribution: RoomLightingContribution,
+        detail: &str,
+    ) {
+        if self.reported_emission_mask_failures.insert(contribution) {
+            crate::omni_warn!(
+                "sprite_emission_mask_allocation_failed contribution={contribution:?}: {detail}; emission skipped",
+            );
+        }
+    }
+
+    pub(super) fn report_glow_source_diagnostics(
+        &mut self,
+        diagnostics: &[GlowSourceDiagnostic],
+    ) {
+        for diagnostic in diagnostics {
+            if !self.reported_glow_source_issues.insert(*diagnostic) {
+                continue;
+            }
+
+            let detail = "no drawable Sprite or CurrentFrame visual is available";
+            crate::omni_warn!(
+                "glow_source_unavailable entity={:?}: {}; emission skipped",
+                diagnostic.entity,
+                detail,
+            );
+        }
     }
 
     fn report_fallback(failure: LightingFailure, detail: &str) {

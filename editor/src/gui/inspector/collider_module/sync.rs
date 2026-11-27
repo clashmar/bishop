@@ -8,6 +8,9 @@ use std::fs;
 use widgets::{Button, WidgetId};
 
 use super::ROW_H;
+use super::super::aseprite_slice_import::format_aseprite_slice_import_toast;
+
+pub(super) use super::super::aseprite_slice_import::AsepriteSliceImportToast;
 
 const IMPORT_ASEPRITE_SLICES_LABEL: &str = "Import Aseprite Slices";
 
@@ -24,48 +27,18 @@ pub(super) fn aseprite_slice_import_label() -> &'static str {
     IMPORT_ASEPRITE_SLICES_LABEL
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum AsepriteSliceImportToast {
-    Success,
-    Warning,
-    Failure,
-}
-
 pub(super) fn aseprite_slice_import_toast(
     imported_count: usize,
     warning_count: usize,
     failure_count: usize,
 ) -> (AsepriteSliceImportToast, String, f32) {
-    if imported_count > 0 {
-        if warning_count > 0 || failure_count > 0 {
-            return (
-                AsepriteSliceImportToast::Warning,
-                format!(
-                    "Imported {imported_count} collider slice(s), {warning_count} warning(s), {failure_count} failure(s)"
-                ),
-                3.0,
-            );
-        }
-
-        return (
-            AsepriteSliceImportToast::Success,
-            format!("Imported {imported_count} collider slice(s)"),
-            2.0,
-        );
-    }
-
-    if failure_count > 0 {
-        return (
-            AsepriteSliceImportToast::Failure,
-            format!("Aseprite slice import failed for {failure_count} clip(s)"),
-            3.0,
-        );
-    }
-
-    (
-        AsepriteSliceImportToast::Warning,
-        "No Aseprite collider slices found".to_string(),
-        3.0,
+    format_aseprite_slice_import_toast(
+        imported_count,
+        warning_count,
+        failure_count,
+        "collider slice(s)",
+        "Aseprite slice import failed",
+        "No Aseprite collider slices found",
     )
 }
 

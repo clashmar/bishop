@@ -19,7 +19,7 @@ use glow::HasContext;
 #[cfg(target_os = "emscripten")]
 use super::gl_context::{GlContext, WebContext};
 #[cfg(target_os = "emscripten")]
-use crate::material::{AmbientPassParams, PointLightPassParams, RenderOps};
+use crate::material::{AmbientPassParams, EmissionPassParams, PointLightPassParams, RenderOps};
 #[cfg(target_os = "emscripten")]
 use crate::types::Color;
 
@@ -271,6 +271,16 @@ impl RenderOps for WebContext {
         params: AmbientPassParams,
     ) -> Result<(), String> {
         WebContext::apply_ambient_pass(self, source, destination, params)
+    }
+
+    fn apply_emission_pass(
+        &mut self,
+        source_mask: &WebRenderTarget,
+        illumination: &WebRenderTarget,
+        destination: &WebRenderTarget,
+        params: EmissionPassParams,
+    ) -> Result<(), String> {
+        WebContext::apply_emission_pass(self, source_mask, illumination, destination, params)
     }
 
     fn apply_point_light_pass(

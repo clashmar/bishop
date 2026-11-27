@@ -242,7 +242,6 @@ pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, gr
 pub fn draw_entity_placeholders(
     ctx: &mut WgpuContext,
     ecs: &Ecs,
-    sprite_manager: &mut SpriteManager,
     room_id: RoomId,
     layer: RoomLayer,
     grid_size: f32,
@@ -289,7 +288,7 @@ pub fn draw_entity_placeholders(
                 draw_light_placeholder(ctx, pos, grid_size);
             }
             EntityVisual::GlowPlaceholder => {
-                draw_glow_placeholder(ctx, sprite_manager, ecs, entity, pos, grid_size);
+                draw_glow_placeholder(ctx, pos, grid_size);
             }
             EntityVisual::GenericPlaceholder => {
                 let draw_pos = pivot_adjusted_position(

@@ -1,10 +1,10 @@
-use crate::animation::ClipDef;
+use crate::animation::{
+    AsepriteSliceImportError, AsepriteSliceWarning, ClipDef, extract_named_aseprite_slice_bounds,
+};
 use crate::ecs::{ColliderData, ColliderFrameKey, Pivot};
 use crate::physics::collider_data_from_frame_bounds;
 use bishop::prelude::Rect;
-use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::collections::btree_map::Entry;
 
 /// Aseprite slice name used as the primary gameplay collider.
 pub const PRIMARY_COLLIDER_SLICE_NAME: &str = "collider";
@@ -21,6 +21,7 @@ pub struct AsepriteColliderImport {
 pub enum AsepriteColliderWarning {
     DuplicatePrimarySlice { frame: ColliderFrameKey },
     SliceFrameOutOfRange { frame_index: usize },
+    InvalidSliceBounds { frame_index: usize },
 }
 
 /// Fatal collider slice import error.
@@ -29,81 +30,55 @@ pub enum AsepriteColliderImportError {
     ParseFailed(String),
 }
 
-#[derive(Deserialize)]
-struct AsepriteColliderJson {
-    meta: AsepriteColliderMeta,
-}
-
-#[derive(Deserialize)]
-struct AsepriteColliderMeta {
-    #[serde(default)]
-    slices: Vec<AsepriteSlice>,
-}
-
-#[derive(Deserialize)]
-struct AsepriteSlice {
-    name: String,
-    #[serde(default)]
-    keys: Vec<AsepriteSliceKey>,
-}
-
-#[derive(Deserialize)]
-struct AsepriteSliceKey {
-    frame: usize,
-    bounds: AsepriteSliceBounds,
-}
-
-#[derive(Deserialize)]
-struct AsepriteSliceBounds {
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-}
-
 /// Extracts sparse AABB collider data from Aseprite slice JSON.
 pub fn extract_aseprite_collider_slices(
     json: &str,
     clip: &ClipDef,
     pivot: Pivot,
 ) -> Result<AsepriteColliderImport, AsepriteColliderImportError> {
-    let parsed: AsepriteColliderJson = serde_json::from_str(json)
-        .map_err(|err| AsepriteColliderImportError::ParseFailed(err.to_string()))?;
-    let mut frames = BTreeMap::new();
-    let mut warnings = Vec::new();
-    let cols = clip.cols.max(1);
-    let frame_count = cols.saturating_mul(clip.rows.max(1));
-
-    for slice in parsed.meta.slices {
-        if !slice.name.eq_ignore_ascii_case(PRIMARY_COLLIDER_SLICE_NAME) {
-            continue;
-        }
-
-        for key in slice.keys {
-            if key.frame >= frame_count {
-                warnings.push(AsepriteColliderWarning::SliceFrameOutOfRange {
-                    frame_index: key.frame,
-                });
-                continue;
+    let imported = extract_named_aseprite_slice_bounds(json, clip, PRIMARY_COLLIDER_SLICE_NAME)
+        .map_err(|error| match error {
+            AsepriteSliceImportError::ParseFailed(message) => {
+                AsepriteColliderImportError::ParseFailed(message)
             }
-
+        })?;
+    let cols = clip.cols.max(1);
+    let frames = imported
+        .frames
+        .into_iter()
+        .map(|(frame_index, bounds)| {
             let frame = ColliderFrameKey {
-                row: key.frame / cols,
-                col: key.frame % cols,
+                row: frame_index / cols,
+                col: frame_index % cols,
             };
             let data = collider_data_from_frame_bounds(
                 clip.frame_size,
-                Rect::new(key.bounds.x, key.bounds.y, key.bounds.w, key.bounds.h),
+                Rect::new(bounds.x, bounds.y, bounds.w, bounds.h),
                 pivot,
             );
-
-            if let Entry::Vacant(entry) = frames.entry(frame) {
-                entry.insert(data);
-            } else {
-                warnings.push(AsepriteColliderWarning::DuplicatePrimarySlice { frame });
+            (frame, data)
+        })
+        .collect();
+    let warnings = imported
+        .warnings
+        .into_iter()
+        .map(|warning| match warning {
+            AsepriteSliceWarning::DuplicateFrame { frame_index } => {
+                AsepriteColliderWarning::DuplicatePrimarySlice {
+                    frame: ColliderFrameKey {
+                        row: frame_index / cols,
+                        col: frame_index % cols,
+                    },
+                }
             }
-        }
-    }
+            AsepriteSliceWarning::FrameOutOfRange { frame_index } => {
+                AsepriteColliderWarning::SliceFrameOutOfRange { frame_index }
+            }
+            AsepriteSliceWarning::InvalidBounds { frame_index } => {
+                AsepriteColliderWarning::InvalidSliceBounds { frame_index }
+            }
+        })
+        .collect();
 
     Ok(AsepriteColliderImport { frames, warnings })
 }

@@ -289,6 +289,16 @@ impl RenderOps for WgpuContext {
         WgpuContext::apply_ambient_pass(self, source, destination, params)
     }
 
+    fn apply_emission_pass(
+        &mut self,
+        source_mask: &super::render::BishopRenderTarget,
+        illumination: &super::render::BishopRenderTarget,
+        destination: &super::render::BishopRenderTarget,
+        params: crate::material::EmissionPassParams,
+    ) -> Result<(), String> {
+        WgpuContext::apply_emission_pass(self, source_mask, illumination, destination, params)
+    }
+
     fn apply_point_light_pass(
         &mut self,
         source: &super::render::BishopRenderTarget,

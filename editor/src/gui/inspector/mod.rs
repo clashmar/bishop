@@ -1,9 +1,11 @@
 mod action_strip;
+mod aseprite_slice_import;
 mod scrollable_pane;
 pub mod animation_module;
 pub mod audio_source_module;
 pub mod collider_module;
 pub mod cover_module;
+pub mod glow_module;
 pub mod interactable_module;
 pub mod kinematic_module;
 pub mod layer_door_module;

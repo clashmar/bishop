@@ -9,8 +9,9 @@ use crate::platform::CloseState;
 use crate::time::web_clock::WebClock;
 use crate::types::Texture2D;
 use super::draw::WebRenderer;
-use super::text::WebText;
+use super::emission::WebEmissionRenderer;
 use super::lighting::WebLightingRenderer;
+use super::text::WebText;
 
 unsafe extern "C" {
     fn bishop_open_webgl2(selector: *const c_char) -> i32;
@@ -177,6 +178,7 @@ pub struct WebContext {
     pub(crate) empty_texture: Texture2D,
     pub(crate) renderer: WebRenderer,
     pub(crate) lighting_renderer: WebLightingRenderer,
+    pub(crate) emission_renderer: WebEmissionRenderer,
     pub(crate) text: WebText,
     pub(crate) input: KeyboardMouseState,
     pub(crate) clock: WebClock,
@@ -191,6 +193,7 @@ impl WebContext {
         let white = super::texture::upload_rgba(&owner, &[255, 255, 255, 255], 1, 1)?;
         let renderer = WebRenderer::new(Rc::clone(&owner), white)?;
         let lighting_renderer = WebLightingRenderer::new(Rc::clone(&owner))?;
+        let emission_renderer = WebEmissionRenderer::new(Rc::clone(&owner))?;
         let text = WebText::new()?;
         let clock = WebClock::new(GlContext::now_ms());
         Ok(Self {
@@ -198,6 +201,7 @@ impl WebContext {
             empty_texture,
             renderer,
             lighting_renderer,
+            emission_renderer,
             text,
             input: KeyboardMouseState::new(),
             clock,

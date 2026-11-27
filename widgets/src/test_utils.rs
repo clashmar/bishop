@@ -43,6 +43,7 @@ pub struct WidgetTestContext {
     pub draw_text_calls: Vec<DrawTextCall>,
     pub measured_font: Cell<Option<bishop::text::FontId>>,
     pub measured_font_scale: Cell<f32>,
+    pub emission_pass_params: Vec<EmissionPassParams>,
 }
 
 impl WidgetTestContext {
@@ -74,7 +75,13 @@ impl WidgetTestContext {
             draw_text_calls: Vec::new(),
             measured_font: Cell::new(None),
             measured_font_scale: Cell::new(1.0),
+            emission_pass_params: Vec::new(),
         }
+    }
+
+    /// Records emission parameters for backend-forwarding assertions.
+    pub fn record_emission_pass_params(&mut self, params: EmissionPassParams) {
+        self.emission_pass_params.push(params);
     }
 
     /// Sets the current time used by widget tests.
@@ -359,6 +366,17 @@ impl RenderOps for WidgetTestContext {
         panic!("lighting passes are not used in widget tests")
     }
 
+    fn apply_emission_pass(
+        &mut self,
+        _source_mask: &BishopRenderTarget,
+        _illumination: &BishopRenderTarget,
+        _destination: &BishopRenderTarget,
+        _params: EmissionPassParams,
+    ) -> Result<(), String> {
+        self.record_emission_pass_params(_params);
+        Ok(())
+    }
+
     fn apply_point_light_pass(
         &mut self,
         _source: &BishopRenderTarget,
@@ -403,6 +421,66 @@ impl TextureLoader for WidgetTestContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bishop::material::emission_pass_targets_are_distinct;
+
+    #[test]
+    fn emission_pass_uses_distinct_source_and_destination() {
+        let source_mask = 1;
+        let illumination = 2;
+        let destination = 3;
+
+        assert!(emission_pass_targets_are_distinct(
+            &source_mask,
+            &illumination,
+            &destination,
+        ));
+        assert!(!emission_pass_targets_are_distinct(
+            &source_mask,
+            &illumination,
+            &source_mask,
+        ));
+    }
+
+    #[cfg(feature = "wgpu")]
+    #[test]
+    fn emission_pass_parameters_are_forwarded() {
+        let mut context = WidgetTestContext::new();
+        let params = EmissionPassParams {
+            color: [0.2, 0.4, 0.8],
+            intensity: 3.0,
+            halo_spread: 24.0,
+            pixelated: true,
+            pixel_size: 6.0,
+            pixel_grid_origin: [11.0, 19.0],
+        };
+
+        context.record_emission_pass_params(params);
+
+        assert_eq!(context.emission_pass_params, vec![params]);
+    }
+
+    #[cfg(not(feature = "wgpu"))]
+    #[test]
+    fn emission_pass_parameters_are_forwarded() {
+        let mut context = WidgetTestContext::new();
+        let mask = BishopRenderTarget::new(8, 8);
+        let illumination = BishopRenderTarget::new(8, 8);
+        let destination = BishopRenderTarget::new(8, 8);
+        let params = EmissionPassParams {
+            color: [0.2, 0.4, 0.8],
+            intensity: 3.0,
+            halo_spread: 24.0,
+            pixelated: true,
+            pixel_size: 6.0,
+            pixel_grid_origin: [11.0, 19.0],
+        };
+
+        context
+            .apply_emission_pass(&mask, &illumination, &destination, params)
+            .expect("the test context should record emission parameters");
+
+        assert_eq!(context.emission_pass_params, vec![params]);
+    }
 
     #[test]
     fn widget_test_context_reports_configured_key_events() {

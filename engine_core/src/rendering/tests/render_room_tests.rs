@@ -1,6 +1,10 @@
 use super::*;
-use bishop::{vec2, Camera2D, Rect};
-use crate::ecs::{Cover, Interactable, Pivot, PointLight, PointLightLayerScope, Transform};
+use bishop::{material::EmissionPassParams, vec2, vec3, Camera2D, Rect};
+use crate::animation::{ClipDef, ClipId};
+use crate::ecs::{
+    Animation, Cover, CurrentFrame, Glow, Interactable, Pivot, Player, PlayerProxy,
+    PointLight, PointLightLayerScope, PointLightStyle, Sprite, SpriteId, Transform,
+};
 use crate::rendering::lighting::point_light_affects_layer;
 use crate::rendering::test_support::make_vertical_spillover_fixture;
 use crate::rendering::{RoomCompositionContext, RoomRenderState, RoomVisibilityContext};
@@ -73,6 +77,72 @@ fn front_layer_alpha(
         .front_layer_composition(ecs, entity, Some(bounds))
         .tint()
         .map(|color| color.a)
+}
+
+#[test]
+fn emission_params_preserve_routed_target_pixel_settings() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut glow = Glow::default();
+    glow.color = vec3(0.2, 0.5, 0.9);
+    glow.intensity = 3.5;
+    glow.halo_spread = 4.0;
+    glow.style = PointLightStyle::Pixel;
+    glow.pixel_size = 2;
+    let mut ecs = Ecs::default();
+    ecs.create_entity()
+        .with(Transform {
+            position: vec2(8.0, 16.0),
+            ..Default::default()
+        })
+        .with(Sprite { sprite: SpriteId(17) })
+        .with(glow)
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+    let camera = Camera2D::new(Vec2::ZERO, vec2(0.5, 0.5));
+    let pixel_grid_origin = camera.world_to_screen(Vec2::ZERO, 128.0, 128.0);
+    let scale = target_pixels_per_world_unit(&camera, 128.0, 128.0);
+    let routed = prepare_routed_glows(
+        &camera,
+        128.0,
+        128.0,
+        scale,
+        pixel_grid_origin,
+        &[RoomLayer::Front],
+        &layer_maps,
+    );
+    let routed = routed.first().expect("visible emitter should be routed");
+    let params = EmissionPassParams::from(routed.params);
+
+    assert_eq!(params.color, [0.2, 0.5, 0.9]);
+    assert_eq!(params.intensity, 3.5);
+    assert_eq!(params.halo_spread, 128.0);
+    assert!(params.pixelated);
+    assert_eq!(params.pixel_size, 64.0);
+    assert_eq!(params.pixel_grid_origin, [64.0, 64.0]);
+}
+
+#[test]
+fn glow_culling_keeps_offscreen_source_when_halo_reaches_view() {
+    let camera = Camera2D::new(Vec2::ZERO, vec2(0.5, 0.5));
+    let source = Rect::new(-2.5, 0.0, 0.25, 0.25);
+
+    assert!(glow_source_visible_with_halo(&camera, source, 20.0, 128.0, 128.0));
+    assert!(!glow_source_visible_with_halo(&camera, source, 0.0, 128.0, 128.0));
 }
 
 #[test]
@@ -254,6 +324,156 @@ fn collect_interpolated_room_layer_maps_point_lights_are_sorted_by_entity_id() {
         .unwrap_or_default();
 
     assert_eq!(lights, vec![first, second]);
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_emission_uses_complete_static_sprite() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut ecs = Ecs::default();
+    ecs.create_entity()
+        .with(Transform {
+            position: vec2(10.0, 8.0),
+            z: 2,
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(Sprite { sprite: SpriteId(17) })
+        .with(Glow::default())
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        16.0,
+        None,
+        None,
+    );
+    let resolved = layer_maps
+        .for_layer(RoomLayer::Front)
+        .get(&2)
+        .and_then(|layer| layer.lighting.glows.first())
+        .map(|glow| glow.source.clone())
+        .expect("static sprite should provide the displayed Glow visual");
+
+    assert_eq!(resolved.sprite_id, SpriteId(17));
+    assert_eq!(resolved.source_rect, Rect::new(0.0, 0.0, 16.0, 16.0));
+    assert_eq!(resolved.destination, Rect::new(10.0, 8.0, 16.0, 16.0));
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_emission_uses_animated_player_visual_glow() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut ecs = Ecs::default();
+    let player = ecs.create_entity()
+        .with(Player)
+        .with(Animation {
+            clips: HashMap::from([(
+                ClipId::Idle,
+                ClipDef {
+                    cols: 3,
+                    rows: 1,
+                    frame_size: vec2(8.0, 8.0),
+                    ..Default::default()
+                },
+            )]),
+            ..Default::default()
+        })
+        .with(CurrentFrame {
+            clip_id: ClipId::Idle,
+            col: 2,
+            row: 0,
+            sprite_id: SpriteId(17),
+            frame_size: vec2(8.0, 8.0),
+            ..Default::default()
+        })
+        .with(Glow::default())
+        .finish();
+    ecs.create_entity()
+        .with(Transform {
+            position: vec2(8.0, 8.0),
+            ..Default::default()
+        })
+        .with(PlayerProxy)
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+    let glows = layer_maps
+        .for_layer(RoomLayer::Front)
+        .values()
+        .flat_map(|layer| &layer.lighting.glows)
+        .collect::<Vec<_>>();
+
+    assert_eq!(glows.len(), 1);
+    assert_eq!(glows[0].entity, player);
+    assert_eq!(glows[0].source.sprite_id, SpriteId(17));
+    assert_eq!(glows[0].source.source_rect, Rect::new(16.0, 0.0, 8.0, 8.0));
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_emission_falls_back_to_sprite_without_current_frame() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut ecs = Ecs::default();
+    ecs.create_entity()
+        .with(Transform {
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(Sprite { sprite: SpriteId(17) })
+        .with(Animation {
+            clips: HashMap::from([(ClipId::Idle, ClipDef::default())]),
+            ..Default::default()
+        })
+        .with(Glow::default())
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+    let resolved = layer_maps
+        .for_layer(RoomLayer::Front)
+        .values()
+        .flat_map(|layer| &layer.lighting.glows)
+        .next()
+        .map(|glow| glow.source.clone())
+        .expect("static sprite should back the animation when CurrentFrame is missing");
+
+    assert_eq!(resolved.sprite_id, SpriteId(17));
+    assert_eq!(resolved.source_rect, Rect::new(0.0, 0.0, 16.0, 16.0));
+    assert_eq!(resolved.destination, Rect::new(0.0, 0.0, 16.0, 16.0));
 }
 
 #[test]

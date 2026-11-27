@@ -14,7 +14,7 @@ mod vertex;
 pub use fullscreen_quad::FullscreenQuadRenderer;
 pub(crate) use lighting::LightingRenderer;
 pub use material::{
-    AmbientMaterial, FinalCompositeMaterial, GlowMaterial, GridMaterial, SceneCompositeMaterial,
+    AmbientMaterial, FinalCompositeMaterial, GridMaterial, SceneCompositeMaterial,
     SpotMaterial, UndarkenedMaterial,
 };
 pub use primitive::PrimitiveRenderer;
@@ -22,6 +22,6 @@ pub use render_target::{create_texture_bind_group_layout, BishopRenderTarget};
 pub use text::{FontAtlas, TextRenderer};
 pub use texture::{TextureRenderer, WgpuTexture};
 pub use uniforms::{
-    AmbientUniforms, CameraUniforms, GlowData, GlowUniforms, GridUniforms, ModelUniforms,
+    AmbientUniforms, CameraUniforms, GridUniforms, ModelUniforms,
     SpotLightData, SpotUniforms,
 };

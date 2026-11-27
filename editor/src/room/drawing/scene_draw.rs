@@ -138,7 +138,6 @@ impl RoomEditor {
         draw_entity_placeholders(
             ctx,
             ecs,
-            sprite_manager,
             draw_ctx.room_id,
             self.active_layer_state.active_layer,
             grid_size,

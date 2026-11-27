@@ -780,6 +780,32 @@ impl WgpuContext {
         Ok(())
     }
 
+    pub(crate) fn apply_emission_pass(
+        &mut self,
+        source_mask: &BishopRenderTarget,
+        illumination: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+        params: crate::material::EmissionPassParams,
+    ) -> Result<(), String> {
+        validate_emission_targets(source_mask, illumination, destination)?;
+        self.flush_if_needed();
+        let mut encoder = self.graphics.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: Some("sprite_emission_pass") },
+        );
+        self.lighting_renderer.emission(
+            &self.graphics.device,
+            &self.graphics.queue,
+            &mut encoder,
+            &self.fullscreen_quad_renderer,
+            source_mask,
+            illumination,
+            destination,
+            params,
+        );
+        self.graphics.queue.submit(std::iter::once(encoder.finish()));
+        Ok(())
+    }
+
     pub(crate) fn apply_point_light_pass(
         &mut self,
         source: &BishopRenderTarget,
@@ -877,6 +903,31 @@ fn validate_lighting_targets(
     }
     if source.width() != destination.width() || source.height() != destination.height() {
         return Err("lighting pass source and destination dimensions must match".to_owned());
+    }
+    Ok(())
+}
+
+fn validate_emission_targets(
+    source_mask: &BishopRenderTarget,
+    illumination: &BishopRenderTarget,
+    destination: &BishopRenderTarget,
+) -> Result<(), String> {
+    if !crate::material::emission_pass_targets_are_distinct(
+        source_mask,
+        illumination,
+        destination,
+    ) || std::ptr::eq(source_mask.texture(), illumination.texture())
+        || std::ptr::eq(source_mask.texture(), destination.texture())
+        || std::ptr::eq(illumination.texture(), destination.texture())
+    {
+        return Err("emission pass source mask, illumination, and destination targets must differ".to_owned());
+    }
+    if source_mask.width() != illumination.width()
+        || source_mask.height() != illumination.height()
+        || source_mask.width() != destination.width()
+        || source_mask.height() != destination.height()
+    {
+        return Err("emission pass target dimensions must match".to_owned());
     }
     Ok(())
 }

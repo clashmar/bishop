@@ -1,9 +1,72 @@
-use crate::ecs::{Entity, PointLight};
-use crate::ecs::PointLightLayerScope;
+use crate::ecs::{Entity, Glow, PointLight, PointLightLayerScope, SpriteId};
 use crate::worlds::RoomLayer;
-use bishop::prelude::{Vec2, Vec3};
+use bishop::material::EmissionPassParams;
+use bishop::prelude::{Rect, Vec2, Vec3};
 
 pub(crate) type CollectedPointLight<'a> = (Entity, &'a PointLight, Vec2);
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct GlowVisual {
+    pub(crate) sprite_id: SpriteId,
+    pub(crate) source_rect: Rect,
+    pub(crate) destination: Rect,
+    pub(crate) flip_x: bool,
+}
+
+impl Default for GlowVisual {
+    fn default() -> Self {
+        Self {
+            sprite_id: SpriteId::default(),
+            source_rect: Rect::new(0.0, 0.0, 0.0, 0.0),
+            destination: Rect::new(0.0, 0.0, 0.0, 0.0),
+            flip_x: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct GlowPassParams {
+    pub(crate) color: [f32; 3],
+    pub(crate) intensity: f32,
+    /// Halo spread in target pixels.
+    pub(crate) halo_spread: f32,
+    pub(crate) pixelated: bool,
+    /// Pixel-grid spacing in target pixels.
+    pub(crate) pixel_size: f32,
+    pub(crate) pixel_grid_origin: [f32; 2],
+}
+
+impl Default for GlowPassParams {
+    fn default() -> Self {
+        Self {
+            color: [1.0, 1.0, 1.0],
+            intensity: 1.0,
+            halo_spread: 0.0,
+            pixelated: false,
+            pixel_size: 1.0,
+            pixel_grid_origin: [0.0, 0.0],
+        }
+    }
+}
+
+impl From<GlowPassParams> for EmissionPassParams {
+    fn from(params: GlowPassParams) -> Self {
+        Self {
+            color: params.color,
+            intensity: params.intensity,
+            halo_spread: params.halo_spread,
+            pixelated: params.pixelated,
+            pixel_size: params.pixel_size,
+            pixel_grid_origin: params.pixel_grid_origin,
+        }
+    }
+}
+
+pub(crate) struct CollectedGlow<'a> {
+    pub(crate) entity: Entity,
+    pub(crate) glow: &'a Glow,
+    pub(crate) source: GlowVisual,
+}
 
 /// Prepares room ambient color as a linear RGB multiplier for the ambient pass.
 pub(crate) fn ambient_multiplier(darkness: f32, color: Vec3, exposure: f32) -> Vec3 {
@@ -43,6 +106,8 @@ pub(crate) fn point_light_attenuation(distance: f32, radius: f32, exponent: f32)
 pub(crate) struct RoomLayerLighting<'a> {
     /// Point lights attached to entities in this layer and depth group.
     pub(crate) point_lights: Vec<CollectedPointLight<'a>>,
+    /// Glow emitters attached to entities in this layer and depth group.
+    pub(crate) glows: Vec<CollectedGlow<'a>>,
 }
 
 impl<'a> RoomLayerLighting<'a> {
@@ -60,9 +125,19 @@ impl<'a> RoomLayerLighting<'a> {
         ));
     }
 
-    /// Sorts collected lights by their owning entity ID.
+    /// Adds an entity-relative Glow with its resolved visual source.
+    pub(crate) fn collect_glow(&mut self, entity: Entity, glow: &'a Glow, source: GlowVisual) {
+        self.glows.push(CollectedGlow {
+            entity,
+            glow,
+            source,
+        });
+    }
+
+    /// Sorts collected emitters by their owning entity ID.
     pub(crate) fn sort(&mut self) {
         self.point_lights.sort_by_key(|light| light.0);
+        self.glows.sort_by_key(|glow| glow.entity);
     }
 }
 
@@ -72,11 +147,20 @@ pub(crate) fn point_light_affects_layer(
     target_layer: RoomLayer,
     visible_layers: &[RoomLayer],
 ) -> bool {
+    light_scope_affects_layer(light.layer_scope, owner_layer, target_layer, visible_layers)
+}
+
+pub(crate) fn light_scope_affects_layer(
+    scope: PointLightLayerScope,
+    owner_layer: RoomLayer,
+    target_layer: RoomLayer,
+    visible_layers: &[RoomLayer],
+) -> bool {
     if !visible_layers.contains(&target_layer) {
         return false;
     }
 
-    match light.layer_scope {
+    match scope {
         PointLightLayerScope::OwningLayer => target_layer == owner_layer,
         PointLightLayerScope::AllVisibleLayers => true,
     }

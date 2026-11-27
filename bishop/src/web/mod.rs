@@ -8,6 +8,8 @@ mod target;
 #[cfg(target_os = "emscripten")]
 mod draw;
 #[cfg(target_os = "emscripten")]
+mod emission;
+#[cfg(target_os = "emscripten")]
 mod gl_context;
 #[cfg(target_os = "emscripten")]
 mod impls;

@@ -1,4 +1,5 @@
 use crate::ecs::{Entity, PointLightLayerScope};
+use crate::rendering::lighting::{GlowPassParams, GlowVisual, light_scope_affects_layer};
 use crate::worlds::RoomLayer;
 use bishop::prelude::PointLightPassParams;
 
@@ -67,14 +68,25 @@ pub(crate) struct RoutedPointLight {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub(crate) struct RoutedGlow {
+    pub(crate) entity: Entity,
+    pub(crate) owner_layer: RoomLayer,
+    pub(crate) scope: PointLightLayerScope,
+    pub(crate) params: GlowPassParams,
+    pub(crate) source: GlowVisual,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ContributionLightingPlan {
     pub(crate) contribution: RoomLightingContribution,
     pub(crate) point_lights: Vec<RoutedPointLight>,
+    pub(crate) glows: Vec<RoutedGlow>,
 }
 
 pub(crate) fn build_room_lighting_plan(
     visible_layers: &[RoomLayer],
     point_lights: &[RoutedPointLight],
+    glows: &[RoutedGlow],
     include_door_ghosts: bool,
 ) -> Vec<ContributionLightingPlan> {
     let mut visible_lights = point_lights
@@ -84,25 +96,50 @@ pub(crate) fn build_room_lighting_plan(
         .collect::<Vec<_>>();
     visible_lights.sort_by_key(|light| light.entity);
 
+    let mut visible_glows = glows
+        .iter()
+        .filter(|glow| visible_layers.contains(&glow.owner_layer))
+        .cloned()
+        .collect::<Vec<_>>();
+    visible_glows.sort_by_key(|glow| glow.entity);
+
     let mut plan = Vec::with_capacity(visible_layers.len() + 1);
     // The room background has no Front/Back owner layer, so all visible-room lights illuminate it
     plan.push(ContributionLightingPlan {
         contribution: RoomLightingContribution::Background,
         point_lights: visible_lights.clone(),
+        glows: visible_glows.clone(),
     });
 
     for &target_layer in visible_layers {
         let lights = visible_lights
             .iter()
-            .filter(|light| match light.scope {
-                PointLightLayerScope::OwningLayer => light.owner_layer == target_layer,
-                PointLightLayerScope::AllVisibleLayers => true,
+            .filter(|light| {
+                light_scope_affects_layer(
+                    light.scope,
+                    light.owner_layer,
+                    target_layer,
+                    visible_layers,
+                )
             })
             .copied()
+            .collect::<Vec<_>>();
+        let routed_glows = visible_glows
+            .iter()
+            .filter(|glow| {
+                light_scope_affects_layer(
+                    glow.scope,
+                    glow.owner_layer,
+                    target_layer,
+                    visible_layers,
+                )
+            })
+            .cloned()
             .collect::<Vec<_>>();
         plan.push(ContributionLightingPlan {
             contribution: RoomLightingContribution::Layer(target_layer),
             point_lights: lights,
+            glows: routed_glows,
         });
     }
 
@@ -110,6 +147,7 @@ pub(crate) fn build_room_lighting_plan(
         plan.push(ContributionLightingPlan {
             contribution: RoomLightingContribution::DoorGhosts,
             point_lights: Vec::new(),
+            glows: Vec::new(),
         });
     }
 

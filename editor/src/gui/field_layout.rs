@@ -1,5 +1,8 @@
 use bishop::{Text, prelude::{Rect, WgpuContext}};
-use widgets::constants::{colors, layout};
+use widgets::{
+    InputCommit, NumberInput, Slider, SliderState, Widget, WidgetId,
+    constants::{colors, layout},
+};
 
 pub(crate) const FIELD_HEIGHT: f32 = 30.0;
 pub(crate) const FIELD_GAP: f32 = layout::WIDGET_SPACING;
@@ -40,6 +43,85 @@ pub(crate) fn numeric_slider_rects(rect: Rect, y: f32) -> (Rect, Rect) {
         FIELD_HEIGHT,
     );
     (input, slider)
+}
+
+pub(crate) fn draw_float_slider(
+    ctx: &mut WgpuContext,
+    blocked: bool,
+    rect: Rect,
+    y: f32,
+    input_id: WidgetId,
+    slider_id: WidgetId,
+    current: f32,
+    max: f32,
+    decimal_places: u32,
+) -> (f32, bool) {
+    let current = normalized_slider_value(current, 0.0, max, decimal_places);
+    let (input_rect, slider_rect) = numeric_slider_rects(rect, y);
+    let (typed, input_commit) = NumberInput::new(input_id, input_rect, current)
+        .min(0.0)
+        .max(max)
+        .blocked(blocked)
+        .show(ctx);
+    let (slider_value, slider_state) = Slider::new(slider_id, slider_rect, 0.0, max, current)
+        .blocked(blocked)
+        .show(ctx);
+    let input_changed = input_active(input_commit);
+    let slider_changed = !matches!(slider_state, SliderState::Unchanged);
+    let value = if slider_changed {
+        slider_value
+    } else if input_changed {
+        typed
+    } else {
+        current
+    };
+    (
+        normalized_slider_value(value, 0.0, max, decimal_places),
+        input_changed || slider_changed,
+    )
+}
+
+pub(crate) fn draw_integer_slider(
+    ctx: &mut WgpuContext,
+    blocked: bool,
+    rect: Rect,
+    y: f32,
+    input_id: WidgetId,
+    slider_id: WidgetId,
+    current: i32,
+    min: i32,
+    max: i32,
+) -> (i32, bool) {
+    let current = current.clamp(min, max);
+    let (input_rect, slider_rect) = numeric_slider_rects(rect, y);
+    let (typed, input_commit) = NumberInput::new(input_id, input_rect, current)
+        .min(min)
+        .max(max)
+        .blocked(blocked)
+        .show(ctx);
+    let (slider_value, slider_state) = Slider::new(
+        slider_id,
+        slider_rect,
+        min as f32,
+        max as f32,
+        current as f32,
+    )
+    .blocked(blocked)
+    .show(ctx);
+    let input_changed = input_active(input_commit);
+    let slider_changed = !matches!(slider_state, SliderState::Unchanged);
+    let value = if slider_changed {
+        slider_value.round() as i32
+    } else if input_changed {
+        typed
+    } else {
+        current
+    };
+    (value.clamp(min, max), input_changed || slider_changed)
+}
+
+pub(crate) fn input_active(commit: InputCommit) -> bool {
+    matches!(commit, InputCommit::Previewing | InputCommit::Committed)
 }
 
 pub(crate) fn round_to_dp(value: f32, decimal_places: u32) -> f32 {
