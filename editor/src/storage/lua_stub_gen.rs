@@ -2,10 +2,12 @@ use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use crate::editor_assets::sounds_lua::generate_sounds_lua;
 use engine_core::animation::{generate_animations_lua, ClipId};
 use engine_core::ecs::{Animation, Ecs};
+use engine_core::input::InputActionMap;
 use engine_core::menu::MenuTemplate;
 use engine_core::prefab::PrefabManager;
 use engine_core::scripting::event_tags::event_tag::{generate_event_tags_lua, EventTag};
 use engine_core::scripting::generate_menus_lua;
+use engine_core::scripting::input_actions_lua::generate_input_actions_lua;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::lua_project::engine_relative_path;
 use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
@@ -30,6 +32,7 @@ pub fn write_initial_generated_lua_files(scripts_folder: &Path) -> io::Result<()
     write_worlds_lua(scripts_folder, &[])?;
     write_entries_lua(scripts_folder, &[])?;
     write_event_tags_lua(scripts_folder, &[])?;
+    write_input_actions_lua(scripts_folder, &InputActionMap::default())?;
     Ok(())
 }
 
@@ -102,6 +105,19 @@ pub fn write_entries_lua(scripts_folder: &Path, entries: &[EntryHandle]) -> io::
         fs::create_dir_all(parent)?;
     }
     fs::write(path, generate_entries_lua(entries))
+}
+
+/// Writes the per-game Lua table for authored input action identifiers.
+pub fn write_input_actions_lua(
+    scripts_folder: &Path,
+    actions: &InputActionMap,
+) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
+    let path = engine_folder.join(engine_relative_path(lua_files::INPUT_ACTIONS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, generate_input_actions_lua(actions))
 }
 
 /// Writes the per-game `event_tags.lua` file with built-in and custom tags.

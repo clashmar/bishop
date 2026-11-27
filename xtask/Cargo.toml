@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-engine_core = { path = "../engine_core" }
+engine_core = { path = "../engine_core", default-features = false }
 web_shell = { path = "../web_shell" }
 ron = "0.9"
 serde = "1"

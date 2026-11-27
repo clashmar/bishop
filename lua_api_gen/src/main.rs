@@ -1,4 +1,6 @@
 use engine_core::constants::paths;
+use engine_core::game::GameDataManifest;
+use engine_core::scripting::input_actions_lua::generate_input_actions_lua;
 use engine_core::theme::generate_theme_reference_markdown;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
 use engine_core::scripting::lua_project::engine_relative_path;
@@ -49,6 +51,7 @@ fn main() {
     }
 
     write_menu_constants_files(&workspace_root);
+    write_demo_input_actions_lua(&workspace_root);
 
     // Generate theme reference markdown
     write_theme_reference(&workspace_root);
@@ -129,6 +132,26 @@ fn write_menu_constants_files(workspace_root: &Path) {
         fs::write(&path, &content).unwrap();
         println!("Written to: {}", path.display());
     }
+}
+
+fn write_demo_input_actions_lua(workspace_root: &Path) {
+    let resources_dir = workspace_root
+        .join(paths::GAME_SAVE_ROOT)
+        .join(paths::DEMO_GAME)
+        .join(paths::RESOURCES_FOLDER);
+    let manifest_path = resources_dir.join(paths::GAME_RON);
+    let manifest = fs::read_to_string(&manifest_path).unwrap_or_else(|error| {
+        panic!("Could not read game manifest '{}': {error}", manifest_path.display());
+    });
+    let manifest = ron::from_str::<GameDataManifest>(&manifest).unwrap_or_else(|error| {
+        panic!("Could not parse game manifest '{}': {error}", manifest_path.display());
+    });
+    let path = demo_engine_dir(workspace_root).join(engine_relative_path(lua_files::INPUT_ACTIONS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::write(&path, generate_input_actions_lua(&manifest.input_actions)).unwrap();
+    println!("Written to: {}", path.display());
 }
 
 fn write_theme_reference(workspace_root: &Path) {

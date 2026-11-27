@@ -51,6 +51,7 @@ pub enum EditorAction {
     // Options actions
     WorldSettings,
     EditorSettings,
+    InputBindings,
     // Editors actions
     OpenMenuEditor,
     OpenPrefabEditor,
@@ -81,6 +82,7 @@ impl EditorAction {
             EditorAction::Rename => "Rename Prefab".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::EditorSettings => "Editor Settings".to_string(),
+            EditorAction::InputBindings => "Input Bindings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
             EditorAction::OpenPrefabEditor => "Prefab Editor".to_string(),
             EditorAction::ReturnToGameEditor => "Game Editor".to_string(),
@@ -155,7 +157,8 @@ impl EditorAction {
             | EditorAction::ViewConsolePanel
             | EditorAction::ViewDiagnosticsPanel
             | EditorAction::ViewResourcesPanel
-            | EditorAction::EditorSettings => true,
+            | EditorAction::EditorSettings
+            | EditorAction::InputBindings => true,
             EditorAction::ViewWorldArrows => {
                 matches!(editor_mode, EditorMode::Game(GameEditorSubmode::Worlds))
             }
@@ -356,7 +359,7 @@ impl MenuBar {
 
         x += view_rect.w + SPACING;
 
-        // Options dropdown (only visible in World/Room modes)
+        // Options dropdown
         let options_actions = options_actions_for_mode(editor_mode);
 
         if !options_actions.is_empty() {
@@ -464,6 +467,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
     [
         EditorAction::EditorSettings,
+        EditorAction::InputBindings,
         EditorAction::WorldSettings,
         EditorAction::Rename,
     ]

@@ -3,6 +3,7 @@
   "diagnostics": {
     "globals": [
       "engine",
+      "InputAction",
       "Color",
       "Widget",
       "private",

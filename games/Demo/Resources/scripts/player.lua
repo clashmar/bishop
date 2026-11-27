@@ -40,10 +40,10 @@ local Player = {
         self._state = state
 
         local horiz = 0
-        if engine.input.is_down(Input.Right) then
+        if engine.input.is_action_down(InputAction.MoveRight) then
             horiz = horiz + 1
         end
-        if engine.input.is_down(Input.Left) then
+        if engine.input.is_action_down(InputAction.MoveLeft) then
             horiz = horiz - 1
         end
 
@@ -57,7 +57,7 @@ local Player = {
         end
 
         -- Check if running
-        local is_running = engine.input.is_down(Input.LeftShift)
+        local is_running = engine.input.is_action_down(InputAction.Run)
         local move_speed = is_running and self.public.run_speed or self.public.speed
 
         -- Get current velocity
@@ -75,8 +75,8 @@ local Player = {
             y = cur_vel.y,
         }
 
-        -- Jump if grounded and space pressed
-        if engine.input.pressed(Input.Space) and is_grounded then
+        -- Jump if grounded and the jump action is pressed
+        if engine.input.is_action_pressed(InputAction.Jump) and is_grounded then
             new_vel.y = -self.public.jump_speed
             -- engine.audio.play_sfx("sfx/jump")
             self.entity:play_sound(Sounds.Jump)
@@ -94,7 +94,7 @@ local Player = {
         end
 
         -- Interaction
-        if engine.input.pressed(Input.I) then
+        if engine.input.is_action_pressed(InputAction.Interact) then
             local entity = self.entity:find_best_interactable()
             if entity then
                 entity:interact()

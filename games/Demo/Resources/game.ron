@@ -9,4 +9,66 @@
         (3),
         (4),
     ],
+    input_actions: (
+        actions: {
+            "pause": [
+                (
+                    source: Key(M),
+                ),
+                (
+                    source: GamepadButton(Start),
+                ),
+            ],
+            "move_left": [
+                (
+                    source: Key(Left),
+                ),
+                (
+                    source: GamepadAxis(
+                        axis: LeftX,
+                        direction: Negative,
+                        threshold: 0.5,
+                    ),
+                ),
+            ],
+            "interact": [
+                (
+                    source: Key(I),
+                ),
+            ],
+            "back": [
+                (
+                    source: Key(Q),
+                ),
+            ],
+            "jump": [
+                (
+                    source: Key(Space),
+                ),
+                (
+                    source: GamepadButton(South),
+                ),
+            ],
+            "run": [
+                (
+                    source: Key(LeftShift),
+                ),
+                (
+                    source: GamepadButton(LeftTrigger),
+                ),
+            ],
+            "move_right": [
+                (
+                    source: Key(Right),
+                ),
+                (
+                    source: GamepadAxis(
+                        axis: LeftX,
+                        direction: Positive,
+                        threshold: 0.5,
+                    ),
+                ),
+            ],
+        },
+    ),
 )

@@ -15,6 +15,7 @@ pub fn load_game_shell_from_source(source: &ResourceSource) -> io::Result<Game> 
     let mut game = Game::with_name(manifest.name);
     game.id = manifest.id;
     game.version = manifest.version;
+    game.input_actions = manifest.input_actions;
     game.runtime_source = Some(source.clone());
 
     for world_id in manifest.world_ids {

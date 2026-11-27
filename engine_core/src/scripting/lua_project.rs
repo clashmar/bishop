@@ -10,6 +10,7 @@ pub struct LuaGlobalModule {
 
 pub const LUA_RUNTIME_GLOBALS: &[&str] = &[
     lua_globals::ENGINE,
+    lua_globals::INPUT_ACTION,
     lua_globals::COLOR,
     lua_globals::WIDGET,
     lua_globals::PRIVATE,
@@ -73,6 +74,7 @@ pub fn engine_relative_path(filename: &str) -> PathBuf {
     match filename {
         lua_files::GLOBALS => PathBuf::from(lua_files::GLOBALS),
         lua_files::INPUT
+        | lua_files::INPUT_ACTIONS
         | lua_files::DIRECTION
         | lua_files::COMPONENTS
         | lua_files::ANIMATIONS
@@ -104,6 +106,7 @@ pub fn engine_require_path(filename: &str) -> String {
 
     match filename {
         lua_files::INPUT
+        | lua_files::INPUT_ACTIONS
         | lua_files::DIRECTION
         | lua_files::COMPONENTS
         | lua_files::ANIMATIONS

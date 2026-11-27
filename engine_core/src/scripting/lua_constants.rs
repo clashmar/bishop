@@ -10,6 +10,7 @@ pub mod lua_files {
     pub const SPATIAL: &str = "spatial.lua";
     pub const GRID: &str = "grid.lua";
     pub const INPUT: &str = "input.lua";
+    pub const INPUT_ACTIONS: &str = "input_actions.lua";
     pub const DIRECTION: &str = "direction.lua";
     pub const SCRIPT: &str = "script.lua";
     pub const GLOBALS: &str = "globals.lua";
@@ -46,6 +47,7 @@ pub mod lua_globals {
     pub const PRIVATE: &str = "private";
     pub const LOCAL: &str = "local";
     pub const INPUT: &str = "Input";
+    pub const INPUT_ACTION: &str = "InputAction";
     pub const DIRECTION: &str = "Direction";
     pub const COMPONENTS: &str = "Components";
     pub const ANIMATIONS: &str = "Animations";
@@ -87,6 +89,13 @@ pub mod lua_event_tag {
     pub const AUTOSAVE: &str = "Autosave";
     pub const CUSTOM: &str = "Custom";
     pub const TAGS: &str = "tags";
+}
+
+/// Lua names for querying game-defined input actions.
+pub mod lua_input {
+    pub const IS_ACTION_DOWN: &str = "is_action_down";
+    pub const IS_ACTION_PRESSED: &str = "is_action_pressed";
+    pub const IS_ACTION_RELEASED: &str = "is_action_released";
 }
 
 /// Root engine Lua table names.

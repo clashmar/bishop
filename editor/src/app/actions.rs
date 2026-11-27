@@ -7,6 +7,7 @@ use crate::gui::menu_bar::*;
 use crate::gui::modals::{
     dirty_prefab_exit::DirtyPrefabExitModal, editor_settings::EditorSettingsModal,
     empty_prefab_exit::EmptyPrefabExitModal, empty_prefab_save::EmptyPrefabSaveModal,
+    input_bindings::InputBindingsModal,
     is_modal_open, new_game::NewGameModal, rename::RenameModal, save_as::SaveAsModal,
     world_settings::WorldSettingsModal, ModalHandler,
 };
@@ -172,6 +173,9 @@ impl Editor {
             }
             EditorAction::EditorSettings => {
                 EditorSettingsModal.open(self, ctx);
+            }
+            EditorAction::InputBindings => {
+                InputBindingsModal.open(self, ctx);
             }
             EditorAction::OpenPrefabEditor => {
                 self.open_prefab_editor(ctx);

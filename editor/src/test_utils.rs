@@ -194,6 +194,9 @@ impl Input for MockInput {
     fn any_key_pressed(&self) -> bool {
         !self.pressed_keys.is_empty()
     }
+    fn pressed_keys(&self) -> Vec<KeyCode> {
+        self.pressed_keys.clone()
+    }
     fn is_mouse_button_down(&self, _button: MouseButton) -> bool {
         false
     }

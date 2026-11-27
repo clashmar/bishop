@@ -3,7 +3,7 @@
     name: "Main World",
     current_room_id: Some((1)),
     meta: (
-        position: (-272.12204, -215.67032),
+        position: (-272.35065, -215.67032),
         visual: Color((0.30588236, 0.4745098, 0.654902, 1.0)),
     ),
     tags: [

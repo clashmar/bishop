@@ -1,4 +1,4 @@
-//! Input handling for keyboard and mouse.
+//! Input handling for keyboard, mouse, and gamepads.
 
 mod gamepad;
 mod keycode;
@@ -48,6 +48,9 @@ pub trait Input {
 
     /// Returns true if any key was pressed this frame.
     fn any_key_pressed(&self) -> bool;
+
+    /// Returns the keys pressed during the current frame.
+    fn pressed_keys(&self) -> Vec<KeyCode>;
 
     /// Returns true if the mouse button is currently held down.
     fn is_mouse_button_down(&self, button: MouseButton) -> bool;

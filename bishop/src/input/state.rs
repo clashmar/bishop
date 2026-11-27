@@ -151,6 +151,11 @@ impl KeyboardMouseState {
         !self.keys_pressed.is_empty()
     }
 
+    /// Returns the keys pressed during the current frame.
+    pub fn pressed_keys(&self) -> Vec<KeyCode> {
+        self.keys_pressed.iter().copied().collect()
+    }
+
     /// Returns true if the mouse button is currently held down.
     pub fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.mouse_down.contains(&button)
@@ -311,6 +316,20 @@ mod tests {
         assert_eq!(input.mouse_delta_position(), (0.0, 0.0));
         input.on_mouse_down(MouseButton::Left, 0.2, (10.0, 20.0));
         assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn pressed_key_codes_return_current_frame_edges() {
+        let mut input = KeyboardMouseState::new();
+        input.on_key_down(KeyCode::A);
+        input.on_key_down(KeyCode::B);
+
+        let mut pressed = input.pressed_keys();
+        pressed.sort_by_key(|key| format!("{key:?}"));
+        assert_eq!(pressed, vec![KeyCode::A, KeyCode::B]);
+
+        input.end_frame();
+        assert!(input.pressed_keys().is_empty());
     }
 
     #[test]
